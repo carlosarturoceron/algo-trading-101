@@ -1,0 +1,7 @@
+ccxt # https://github.com/ccxt/ccxt
+pandas
+numpy
+ipykernel
+schedule
+matplotlib
+python-dotenv
