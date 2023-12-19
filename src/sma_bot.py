@@ -14,12 +14,17 @@ import time, schedule
 import matplotlib.pyplot as plt
 
 import dotenv
+import ast
 import os
 
 # Load variables from the .env file
-dotenv.load_dotenv(dotenv.find_dotenv("env"))
+dotenv.load_dotenv(dotenv.find_dotenv(".env"))
 os.environ["API_KEY"] = os.getenv("API_KEY")
 os.environ["API_SECRET"] = os.getenv("API_SECRET")
+os.environ["symbol"] = os.getenv("symbol")
+os.environ["pos_size"] = os.getenv("pos_size")
+os.environ["params"] = os.getenv("params")
+os.environ["target"] = os.getenv("target")
 
 # connect to the exchange
 phemex = ccxt.phemex({
@@ -29,10 +34,10 @@ phemex = ccxt.phemex({
 })
 
 # Set Parameters
-symbol = 'ETHUSD' #symbol to trade
-pos_size = 10 # position size
-params = {'timeInForce':'PostOnly'}
-target = 25
+symbol = os.environ["symbol"] #symbol to trade
+pos_size = int(os.environ["pos_size"]) # position size
+params = ast.literal_eval(os.environ["params"])
+target = int(os.environ["target"])
 
 # Ask Bid
 def ask_bid():
@@ -44,11 +49,17 @@ def ask_bid():
 
 # Open Positions
 def open_positions():
-    params = {'type':'swap', 'code':'USD'}
-    phe_bal = phemex.fetch_balance(params=params)
-    open_positions = phe_bal['info']['data']['positions']
-    open_positions_side = open_positions[0]['side']
-    open_positions_size = open_positions[0]['size']
+
+    pos_dict = phemex.fetch_positions(params=params)
+    for i in range(len(pos_dict)):
+        try:
+            if pos_dict[i]['info']['symbol'] == symbol:
+                position = pos_dict[i]
+        except Exception as exc:
+            print('Error fetching open positions')
+
+    open_positions_side = position['info']['side']
+    open_positions_size = position['info']['size']
 
     if open_positions_side == ('Buy'):
         openpos_bool = True
@@ -59,7 +70,8 @@ def open_positions():
     else:
         openpos_bool = False
         long = None
-    return open_positions, openpos_bool, open_positions_size, long
+        
+    return position, openpos_bool, open_positions_size, long
 
 
 # Determine the trend with the simple moving average 20 periods 1 day
@@ -117,6 +129,7 @@ def sma20_15m():
 # Kill Switch
 # CREATE A KILL_SWITCH
 def kill_switch():
+
     print('starting kill switch')
     openposi = open_positions()[1]
     kill_size = open_positions()[2]
@@ -166,7 +179,7 @@ def pnl_close():
     # if hit target, close
     print("checking to see if it is time to exit...")
     params = {"type":"swap", "code":"USD"}
-    pos_dict = open_position_for_symbol(symbol)
+    pos_dict = open_positions()[0]
     print(pos_dict)
     side = pos_dict["side"]
     #size = pos_dict["contracts"]
